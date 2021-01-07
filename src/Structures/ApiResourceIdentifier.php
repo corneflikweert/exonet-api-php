@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Exonet\Api\Structures;
 
+use Exonet\Api\Client;
 use Exonet\Api\Request;
 
 /**
@@ -37,18 +38,24 @@ class ApiResourceIdentifier
     protected $changedRelationships = [];
 
     /**
+     * @var Client|null The initialised API client.
+     */
+    protected $apiClient;
+
+    /**
      * ApiResourceIdentifier constructor.
      *
-     * @param string  $resourceType The resource type.
-     * @param string  $id           The resource ID.
-     * @param Request $request      The optional request instance to use.
+     * @param string      $resourceType The resource type.
+     * @param string|null $id           The resource ID.
+     * @param Client|null $apiClient    The initialised API client.
      */
-    public function __construct(string $resourceType, ?string $id = null, ?Request $request = null)
+    public function __construct(string $resourceType, ?string $id = null, Client $apiClient = null)
     {
         $this->resourceType = $resourceType;
         $this->id = $id;
+        $this->apiClient = $apiClient;
 
-        $this->request = $request ?? new Request($resourceType);
+        $this->request = new Request($resourceType, $apiClient);
     }
 
     /**
@@ -119,7 +126,7 @@ class ApiResourceIdentifier
      */
     public function related($name)
     {
-        return new Relation($name, $this->type(), $this->id());
+        return new Relation($name, $this->type(), $this->id(), $this->apiClient);
     }
 
     /**
@@ -136,7 +143,7 @@ class ApiResourceIdentifier
         if (func_num_args() === 1) {
             // Check if the relationship is already defined. If not, create it now.
             if (!isset($this->relationships[$name])) {
-                $this->relationships[$name] = new Relationship($name, $this->type(), $this->id());
+                $this->relationships[$name] = new Relationship($name, $this->type(), $this->id(), $this->apiClient);
             }
 
             return $this->relationships[$name];

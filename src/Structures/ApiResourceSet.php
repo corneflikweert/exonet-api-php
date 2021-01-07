@@ -38,15 +38,22 @@ class ApiResourceSet implements IteratorAggregate, ArrayAccess, Countable
     private $connector;
 
     /**
+     * @var Client The initialised API client.
+     */
+    private $apiClient;
+
+    /**
      * ApiResourceSet constructor.
      *
      * @param string|array   $resources The resources from the API as encoded JSON string or a similar array.
      * @param Connector|null $connector The connector used for pagination requests. If null, the default connect will be
      *                                  used.
+     * @param Client|null    $apiClient The initialised API apiClient.
      */
-    public function __construct($resources, Connector $connector = null)
+    public function __construct($resources, Client $apiClient, Connector $connector = null)
     {
-        $this->connector = $connector ?? new Connector();
+        $this->connector = $connector ?? new Connector($apiClient);
+        $this->apiClient = $apiClient;
 
         if (is_string($resources)) {
             $resources = json_decode($resources, true);
@@ -55,9 +62,9 @@ class ApiResourceSet implements IteratorAggregate, ArrayAccess, Countable
         if (isset($resources['data'])) {
             foreach ($resources['data'] as $resourceItem) {
                 if (isset($resourceItem['attributes'])) {
-                    $this->resources[] = new ApiResource($resourceItem['type'], $resourceItem);
+                    $this->resources[] = new ApiResource($resourceItem['type'], $resourceItem, $apiClient);
                 } else {
-                    $this->resources[] = new ApiResourceIdentifier($resourceItem['type'], $resourceItem['id']);
+                    $this->resources[] = new ApiResourceIdentifier($resourceItem['type'], $resourceItem['id'], $apiClient);
                 }
             }
         }
@@ -220,7 +227,7 @@ class ApiResourceSet implements IteratorAggregate, ArrayAccess, Countable
             return null;
         }
 
-        $link = substr($linkValue, strlen(Client::getInstance()->getApiUrl()));
+        $link = substr($linkValue, strlen($this->apiClient->getApiUrl()));
 
         return $this->connector->get($link);
     }

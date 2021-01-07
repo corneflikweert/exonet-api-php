@@ -2,6 +2,7 @@
 
 namespace Exonet\Api\Structures;
 
+use Exonet\Api\Client;
 use Exonet\Api\Exceptions\InvalidRequestException;
 use Exonet\Api\Request;
 
@@ -38,12 +39,17 @@ class Relation
     /**
      * Relation constructor.
      *
-     * @param string $relationName The name of the relation.
-     * @param string $originType   The resource type of the origin resource.
-     * @param string $originId     The resource ID of the origin resource.
+     * @param string      $relationName The name of the relation.
+     * @param string|null $originType   The resource type of the origin resource.
+     * @param string|null $originId     The resource ID of the origin resource.
+     * @param Client|null $apiClient    The initialised API client.
      */
-    public function __construct(string $relationName, string $originType = null, string $originId = null)
-    {
+    public function __construct(
+        string $relationName,
+        string $originType = null,
+        string $originId = null,
+        Client $apiClient = null
+    ) {
         $this->name = $relationName;
 
         if ($originType && $originId) {
@@ -54,7 +60,7 @@ class Relation
                 $relationName
             );
 
-            $this->request = new Request($this->url);
+            $this->request = new Request($this->url, $apiClient);
         }
     }
 

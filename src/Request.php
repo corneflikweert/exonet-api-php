@@ -38,12 +38,13 @@ class Request
      * Request constructor.
      *
      * @param null|string    $resource  The resource to get.
+     * @param Client|null $apiClient    The initialised API client.
      * @param Connector|null $connector Optional connector instance to use.
      */
-    public function __construct(string $resource, ?Connector $connector = null)
+    public function __construct(string $resource, Client $apiClient, ?Connector $connector = null)
     {
         $this->resource = $resource;
-        $this->connector = $connector ?? new Connector();
+        $this->connector = $connector ?? new Connector($apiClient);
     }
 
     /**

@@ -64,24 +64,6 @@ class Client implements LoggerAwareInterface
         }
 
         $this->setApiUrl($apiUrl ?? self::API_URL);
-
-        if (!isset(self::$_instance)) {
-            self::$_instance = $this;
-        }
-    }
-
-    /**
-     * Implement the singleton pattern so the client is shared.
-     *
-     * @return Client The cache instance.
-     */
-    public static function getInstance(): self
-    {
-        if (!isset(self::$_instance)) {
-            self::$_instance = new self();
-        }
-
-        return self::$_instance;
     }
 
     /**
@@ -153,7 +135,7 @@ class Client implements LoggerAwareInterface
     {
         if ($this->logger === null) {
             // If there's no logger set, use the NullLogger.
-            $this->logger = new NullLogger();
+            $this->setLogger(new NullLogger());
         }
 
         return $this->logger;
@@ -162,13 +144,13 @@ class Client implements LoggerAwareInterface
     /**
      * Set the logger instance to use.
      *
-     * @param LoggerInterface $log The log instance to use.
+     * @param LoggerInterface $logger The logger instance to use.
      *
      * @return self The current Client instance.
      */
-    public function setLogger(LoggerInterface $log): self
+    public function setLogger(LoggerInterface $logger): self
     {
-        $this->logger = $log;
+        $this->logger = $logger;
 
         return $this;
     }
@@ -188,9 +170,9 @@ class Client implements LoggerAwareInterface
         $this->log()->debug('Starting new request', ['resource' => $resourceType]);
 
         if ($id !== null) {
-            return new ApiResourceIdentifier($resourceType, $id);
+            return new ApiResourceIdentifier($resourceType, $id, $this);
         }
 
-        return new Request($resourceType);
+        return new Request($resourceType, $this);
     }
 }

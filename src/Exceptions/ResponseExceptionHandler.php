@@ -34,18 +34,19 @@ class ResponseExceptionHandler
     /**
      * @var Client The Client instance.
      */
-    private $client;
+    private $apiClient;
 
     /**
      * ResponseExceptionHandler constructor.
      *
-     * @param PsrResponse $response The response.
+     * @param PsrResponse $response  The response.
+     * @param Client      $apiClient The initialised API client.
      */
-    public function __construct(PsrResponse $response, ?Client $client = null)
+    public function __construct(PsrResponse $response, Client $apiClient)
     {
         $this->response = $response;
         $this->responseBody = $response->getBody()->getContents();
-        $this->client = $client ?? Client::getInstance();
+        $this->apiClient = $apiClient;
     }
 
     /**
@@ -55,7 +56,7 @@ class ResponseExceptionHandler
      */
     public function handle(): void
     {
-        $this->client->log()->error(
+        $this->apiClient->log()->error(
             'Request failed',
             ['statusCode' => $this->response->getStatusCode(), 'contents' => $this->responseBody]
         );

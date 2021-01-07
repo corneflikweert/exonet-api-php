@@ -33,18 +33,18 @@ class Connector
     /**
      * @var Client The API client.
      */
-    private $apiClientInstance;
+    private $apiClient;
 
     /**
      * Connector constructor.
      *
      * @param HandlerStack|null $guzzleHandlerStack Optional Guzzle handlers.
-     * @param Client|null       $client             The client instance.
+     * @param Client|null       $apiClient          The initialised API client.
      */
-    public function __construct(?HandlerStack $guzzleHandlerStack = null, ?Client $client = null)
+    public function __construct(Client $apiClient, ?HandlerStack $guzzleHandlerStack = null)
     {
         self::$guzzleHandlerStack = $guzzleHandlerStack;
-        $this->apiClientInstance = $client;
+        $this->apiClient = $apiClient;
     }
 
     /**
@@ -56,8 +56,8 @@ class Connector
      */
     public function get(string $urlPath)
     {
-        $apiUrl = $this->apiClient()->getApiUrl().$urlPath;
-        $this->apiClient()->log()->debug('Sending [GET] request', ['url' => $apiUrl]);
+        $apiUrl = $this->apiClient->getApiUrl().$urlPath;
+        $this->apiClient->log()->debug('Sending [GET] request', ['url' => $apiUrl]);
 
         $request = new Request('GET', $apiUrl, $this->getDefaultHeaders());
 
@@ -73,11 +73,11 @@ class Connector
      */
     public function getRecursive(string $urlPath): ApiResourceSet
     {
-        $apiUrl = $this->apiClient()->getApiUrl().$urlPath;
+        $apiUrl = $this->apiClient->getApiUrl().$urlPath;
 
         $data = $this->runRecursiveGet($apiUrl);
 
-        return new ApiResourceSet(['data' => $data]);
+        return new ApiResourceSet(['data' => $data], $this->apiClient);
     }
 
     /**
@@ -90,8 +90,8 @@ class Connector
      */
     public function post(string $urlPath, array $data)
     {
-        $apiUrl = $this->apiClient()->getApiUrl().$urlPath;
-        $this->apiClient()->log()->debug('Sending [POST] request', ['url' => $apiUrl]);
+        $apiUrl = $this->apiClient->getApiUrl().$urlPath;
+        $this->apiClient->log()->debug('Sending [POST] request', ['url' => $apiUrl]);
 
         $request = new Request(
             'POST',
@@ -116,8 +116,8 @@ class Connector
      */
     public function patch(string $urlPath, array $data): bool
     {
-        $apiUrl = $this->apiClient()->getApiUrl().$urlPath;
-        $this->apiClient()->log()->debug('Sending [PATCH] request', ['url' => $apiUrl]);
+        $apiUrl = $this->apiClient->getApiUrl().$urlPath;
+        $this->apiClient->log()->debug('Sending [PATCH] request', ['url' => $apiUrl]);
 
         $request = new Request(
             'PATCH',
@@ -141,8 +141,8 @@ class Connector
      */
     public function delete(string $urlPath, array $data = []): bool
     {
-        $apiUrl = $this->apiClient()->getApiUrl().$urlPath;
-        $this->apiClient()->log()->debug('Sending [DELETE] request', ['url' => $apiUrl]);
+        $apiUrl = $this->apiClient->getApiUrl().$urlPath;
+        $this->apiClient->log()->debug('Sending [DELETE] request', ['url' => $apiUrl]);
 
         $request = new Request(
             'DELETE',
@@ -168,10 +168,10 @@ class Connector
      */
     private function parseResponse(PsrResponse $response)
     {
-        $this->apiClient()->log()->debug('Request completed', ['statusCode' => $response->getStatusCode()]);
+        $this->apiClient->log()->debug('Request completed', ['statusCode' => $response->getStatusCode()]);
 
         if ($response->getStatusCode() >= 300) {
-            (new ResponseExceptionHandler($response))->handle();
+            (new ResponseExceptionHandler($response, $this->apiClient))->handle();
         }
 
         $contents = $response->getBody()->getContents();
@@ -180,15 +180,15 @@ class Connector
 
         // Create collection of resources when returned data is an array.
         if (is_array($decodedContent->data)) {
-            return new ApiResourceSet($contents);
+            return new ApiResourceSet($contents, $this->apiClient);
         }
 
         // Convert single item into resource or resource identifier.
         if (isset($decodedContent->data->attributes)) {
-            return new ApiResource($decodedContent->data->type, $contents);
+            return new ApiResource($decodedContent->data->type, $contents, $this->apiClient);
         }
 
-        return new ApiResourceIdentifier($decodedContent->data->type, $decodedContent->data->id);
+        return new ApiResourceIdentifier($decodedContent->data->type, $decodedContent->data->id, $this->apiClient);
     }
 
     /**
@@ -209,16 +209,6 @@ class Connector
     }
 
     /**
-     * Get the API client.
-     *
-     * @return Client The API client.
-     */
-    private function apiClient(): Client
-    {
-        return $this->apiClientInstance ?? Client::getInstance();
-    }
-
-    /**
      * Get the given URL recursively, based on the value of the 'links.next' value.
      *
      * @param string $apiUrl The URL to get.
@@ -228,16 +218,16 @@ class Connector
      */
     private function runRecursiveGet(string $apiUrl, $data = []): array
     {
-        $this->apiClient()->log()->debug('Sending recursive [GET] request', ['url' => $apiUrl]);
+        $this->apiClient->log()->debug('Sending recursive [GET] request', ['url' => $apiUrl]);
 
         $request = new Request('GET', $apiUrl, $this->getDefaultHeaders());
 
         $response = self::httpClient()->send($request);
 
-        $this->apiClient()->log()->debug('Recursive request completed', ['statusCode' => $response->getStatusCode()]);
+        $this->apiClient->log()->debug('Recursive request completed', ['statusCode' => $response->getStatusCode()]);
 
         if ($response->getStatusCode() >= 300) {
-            (new ResponseExceptionHandler($response))->handle();
+            (new ResponseExceptionHandler($response, $this->apiClient))->handle();
         }
 
         $contents = $response->getBody()->getContents();
@@ -260,7 +250,7 @@ class Connector
     private function getDefaultHeaders(): array
     {
         return [
-            'Authorization' => sprintf('Bearer %s', $this->apiClient()->getAuth()->getToken()),
+            'Authorization' => sprintf('Bearer %s', $this->apiClient->getAuth()->getToken()),
             'Accept' => 'application/vnd.Exonet.v1+json',
             'Content-Type' => 'application/json',
             'User-Agent' => 'exonet-api-php/'.Client::CLIENT_VERSION,

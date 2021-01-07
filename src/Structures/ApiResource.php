@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Exonet\Api\Structures;
 
+use Exonet\Api\Client;
 use Exonet\Api\Exceptions\ExonetApiException;
 use Exonet\Api\Request;
 
@@ -25,10 +26,12 @@ class ApiResource extends ApiResourceIdentifier
      *
      * @param string         $type     The resource type.
      * @param mixed[]|string $contents The contents of the resource, as (already decoded) array or encoded JSON.
-     * @param Request|null   $request  The optional request instance to use.
+     * @param Client|null    $client The initialised API client.
      */
-    public function __construct(string $type, $contents = [], ?Request $request = null)
+    public function __construct(string $type, $contents = null, Client $client = null)
     {
+        $contents = $contents ?? [];
+
         $data = is_array($contents) ? $contents : json_decode($contents, true)['data'];
 
         // If decoding of JSON has failed, assume the $contents is a hashid.
@@ -36,7 +39,7 @@ class ApiResource extends ApiResourceIdentifier
             $data['id'] = $contents;
         }
 
-        parent::__construct($type, $data['id'] ?? null, $request);
+        parent::__construct($type, $data['id'] ?? null, $client);
 
         if (array_key_exists('attributes', $data)) {
             $this->attributes = $data['attributes'];
@@ -132,15 +135,15 @@ class ApiResource extends ApiResourceIdentifier
         $parsedRelations = [];
 
         foreach ($relationships as $relationName => $relation) {
-            $relationship = new Relationship($relationName, $this->type(), $this->id());
+            $relationship = new Relationship($relationName, $this->type(), $this->id(), $this->apiClient);
 
             if (isset($relation['data']['type'])) {
                 $relationship->setResourceIdentifiers(
-                    new ApiResourceIdentifier($relation['data']['type'], $relation['data']['id'])
+                    new ApiResourceIdentifier($relation['data']['type'], $relation['data']['id'], $this->apiClient)
                 );
             } elseif (!empty($relation['data'])) {
                 $relationship->setResourceIdentifiers(
-                    new ApiResourceSet($relation)
+                    new ApiResourceSet($relation, $this->apiClient)
                 );
             }
 
